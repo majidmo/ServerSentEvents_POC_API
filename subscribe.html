@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscribe to Notifications</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 10px;
+            width: 100%;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+            button:hover {
+                background-color: #218838;
+            }
+
+        .notifications {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .notification {
+            padding: 8px;
+            background: #f8f9fa;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            border-radius: 5px;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Subscribe to Notifications</h2>
+
+    <label for="userId">Enter User ID:</label>
+    <input type="number" id="userId" required>
+    <button onclick="subscribe()">Subscribe</button>
+
+    <p class="status" id="statusMessage"></p>
+
+    <h3>Notifications:</h3>
+    <div class="notifications" id="notifications"></div>
+
+    <script>
+        let eventSource;
+        let receivedNotifications = new Set(); // Avoid duplicate notifications
+
+        function subscribe() {
+            const userId = document.getElementById("userId").value;
+            const statusMessage = document.getElementById("statusMessage");
+
+            if (!userId) {
+                alert("Please enter a User ID.");
+                return;
+            }
+
+            if (eventSource) {
+                eventSource.close(); // Close any existing connection
+            }
+
+            const url = `https://localhost:7263/api/notification/subscribe/${userId}`;
+            console.log("Connecting to:", url);
+            eventSource = new EventSource(url);
+
+            // ✅ Show success message immediately
+            statusMessage.textContent = "✅ Subscription was successful!";
+            statusMessage.className = "status success";
+
+            eventSource.onopen = () => {
+                console.log("✅ SSE Connection Opened");
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    let data = event.data;
+
+                    // ✅ Check if the data is JSON or plain text
+                    if (data.startsWith("{") || data.startsWith("[")) {
+                        data = JSON.parse(data);
+                    }
+
+                    console.log("🔔 Received:", data);
+
+                    if (Array.isArray(data)) {
+                        // Handle unread notifications (sent as an array)
+                        data.forEach(notification => displayNotification(notification, true));
+                    } else {
+                        // Handle real-time notifications
+                        displayNotification(data, false);
+                    }
+                } catch (error) {
+                    console.error("❌ Error parsing message:", error, "Raw data:", event.data);
+                    displayNotification(event.data, false); // Show as plain text
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error("❌ SSE Error:", error);
+                statusMessage.textContent = "❌ Connection lost, attempting to reconnect...";
+                statusMessage.className = "status error";
+
+                eventSource.close();
+
+                setTimeout(() => {
+                    console.log("🔄 Reconnecting...");
+                    subscribe();
+                }, 5000);
+            };
+        }
+
+        function displayNotification(message, isUnread) {
+            if (typeof message === "object" && message.id) {
+                if (receivedNotifications.has(message.id)) return; // Avoid duplicate notifications
+                receivedNotifications.add(message.id);
+                message = message.text; // Extract text from object
+            }
+
+            const notificationsDiv = document.getElementById("notifications");
+            const notification = document.createElement("div");
+            notification.classList.add("notification");
+            notification.textContent = isUnread ? `📌 Unread: ${message}` : `🔔 ${message}`;
+            notificationsDiv.prepend(notification);
+        }
+    </script>
+
+</body>
+</html>
