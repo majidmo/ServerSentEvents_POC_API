@@ -44,7 +44,7 @@ namespace ServerSentEvents_POC_API
 
             app.UseHttpsRedirection();
 
-            app.UseAuthorization();
+            //app.UseAuthorization();
 
 
             app.MapControllers();

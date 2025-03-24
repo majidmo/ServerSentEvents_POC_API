@@ -4,7 +4,7 @@ using ServerSentEvents_POC_API.Services;
 namespace ServerSentEvents_POC_API.Controllers
 {   
     [Route("api/[controller]")]
-    public class NotificationsController : Controller
+    public class NotificationsController : ControllerBase
     {
         private readonly NotificationService _notificationService;
 
@@ -22,7 +22,7 @@ namespace ServerSentEvents_POC_API.Controllers
 
             while (!cancellationToken.IsCancellationRequested)
             {
-                var notifications = await _notificationService.GetNewNotificationsAsync(userId);
+                var notifications = await _notificationService.GetUnreadNotificationsAsync(userId);
 
                 if (notifications.Any())
                 {
@@ -58,7 +58,7 @@ namespace ServerSentEvents_POC_API.Controllers
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetUserNotifications(int userId)
         {
-            var notifications = await _notificationService.GetNewNotificationsAsync(userId);
+            var notifications = await _notificationService.GetUnreadNotificationsAsync(userId);
             return Ok(notifications);
         }
     }

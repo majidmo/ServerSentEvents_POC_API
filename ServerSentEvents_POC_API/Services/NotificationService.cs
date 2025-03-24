@@ -12,7 +12,7 @@ namespace ServerSentEvents_POC_API.Services
             _context = context;
         }
 
-        public async Task<List<NotificationDto>> GetNewNotificationsAsync(int userId)
+        public async Task<List<NotificationDto>> GetUnreadNotificationsAsync(int userId)
         {
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId && !n.IsRead)

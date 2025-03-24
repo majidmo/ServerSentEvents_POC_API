@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 using ServerSentEvents_POC_API.Models;
 using System.Collections.Concurrent;
+using Azure;
+using ServerSentEvents_POC_API.Services;
+using System.Text.Json;
 
 namespace ServerSentEvents_POC_API.Controllers
 {
@@ -11,13 +14,15 @@ namespace ServerSentEvents_POC_API.Controllers
     public class NotificationController : ControllerBase
     {
         private readonly NotificationContext _context;
-        
+        private readonly NotificationService _notificationService;
+
         //This is where we store all open stream responses being sent to a userId
         private static readonly ConcurrentDictionary<int, List<HttpResponse>> _clients = new();
 
-        public NotificationController(NotificationContext context)
+        public NotificationController(NotificationContext context, NotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         [HttpGet("subscribe/{userId}")]
@@ -27,9 +32,20 @@ namespace ServerSentEvents_POC_API.Controllers
             Response.Headers.Add("Cache-Control", "no-cache");
             Response.Headers.Add("Connection", "keep-alive");
 
+            var unreadNotifications = await _notificationService.GetUnreadNotificationsAsync(userId);
+
+            // Ensure unread notifications are sent as JSON array
+            if (unreadNotifications.Any())
+            {
+                var unreadJson = JsonSerializer.Serialize(unreadNotifications);
+                await Response.WriteAsync($"data: {unreadJson}\n\n");
+                await Response.Body.FlushAsync();
+            }
+
             if (!_clients.ContainsKey(userId))
                 _clients[userId] = new List<HttpResponse>();
 
+            //Need to figure out if same response already exists and not add if that is an issue
             _clients[userId].Add(Response);
 
             try
@@ -59,7 +75,7 @@ namespace ServerSentEvents_POC_API.Controllers
                             var message = $"data: {notification.Message}\n\n";
                             await client.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes(message));
                             await client.Body.FlushAsync();
-                        }
+                        } 
                     }
                     catch
                     {
